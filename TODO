@@ -1,0 +1,10 @@
+* Allow users to boot another hard disk
+May wish to boot another hard disk, so use slots 5/6 for that. What if
+we want something else for those slots? Maybe just use 5. We then
+have:
+bit  01234567
+char 1234FD?A
+
+* Update INSTALL (if necessary).
+* Update AUTHORS
+* More NEWS?

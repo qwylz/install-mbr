@@ -1,0 +1,43 @@
+	.org 0
+	dw 0
+	.space 0x1be-2
+!   00 byte Boot indicator
+!   01 byte start head
+!   02 byte start sector
+!   03 byte start cylinder
+!   04 byte type
+!   05 byte end head
+!   06 byte end sector
+!   07 byte end cylinder
+!   08 dw   sectors before partition
+!   0c dw   sectors in partition
+
+!Partition: inactive  type: 0x06
+!Start: C=0 H=0 S=2  End: C=131 H=15 S=17
+!Sector 0x00000000  Length 0x00010de0
+	!          0+    131     132-    17951+   6  FAT16
+	db 0x00, 0x00, 0x02, 0x00, 0x06, 0x0f, 0x11, 0x83
+	dd   0x00000001, 0x00008c3f
+
+!Partition: active  type: 0x83
+!Start: C=132 H=0 S=1  End: C=1023 H=15 S=17
+!Sector 0x00008c40  Length 0x00044000
+	!   *    132    1155    1024    139264   83  Linux
+	db 0x80, 0x00, 0x01, 0x84, 0x83, 0x0f, 0xd1, 0xff
+	dd   0x00008c40, 0x00044000
+
+!Partition: inactive  type: 0xeb
+!Start: C=1023 H=15 S=17  End: C=1023 H=15 S=17
+!Sector 0x0004cc40  Length 0x00010de0
+	!       1156    1409     254     34544   eb  BeOS fs
+	db 0x00, 0x0f, 0xd1, 0xff, 0xeb, 0x0f, 0xd1, 0xff
+	dd   0x0004CC40, 0x00010de0
+
+!Partition: inactive  type: 0xa7
+!Start: C=1023 H=15 S=17  End: C=1023 H=15 S=17
+!Sector 0x0005da20  Length 0x0002a5e0
+	!       1410    2047     638     86768   a7  NeXTSTEP
+	db 0x00, 0x0f, 0xd1, 0xff, 0xa7, 0x0f, 0xd1, 0xff
+	dd   0x0005da20, 0x0002a5e0
+
+	dw 0xaa55

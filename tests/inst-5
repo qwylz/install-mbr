@@ -1,0 +1,44 @@
+#! /bin/sh
+set -e
+# Test installing old versions.
+cat <<EOF >test-x
+Version: 0
+Compatible: 0
+Drive: 0x80
+Default: D
+Timeout: 18/18 seconds
+Enabled: F A
+Interrupt: Shift Key
+EOF
+
+do_install -l mbr-1.0.0.b >test-y
+diff -u test-x test-y
+
+do_install -l mbr-1.0.1.b >test-y
+diff -u test-x test-y
+
+do_install -l mbr-1.1.0.b >test-y
+diff -u test-x test-y
+
+do_install -l mbr-1.1.1.b >test-y
+diff -u test-x test-y
+
+do_install -l mbr-1.1.2.b >test-y
+diff -u test-x test-y
+
+# Version change.
+cat <<EOF >test-x
+Version: 1
+Compatible: 0
+Y2K-Fix: Disabled
+Drive: 0x80
+Default: D
+Timeout: 18/18 seconds
+Enabled: F A
+Interrupt: Shift Key
+EOF
+
+do_install -l mbr-1.1.3.b >test-y
+diff -u test-x test-y
+
+: Done

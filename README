@@ -1,0 +1,112 @@
+A replacement master boot record
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Contents
+~~~~~~~~
+1. Copyright
+2. Introduction
+3. Basic Installation
+4. The boot process
+5. Configuration
+6. Acknowledgements
+
+1. Copyright
+~~~~~~~~~~~~
+
+Copyright (C) 1995, 1999 Neil Turton
+
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2 of the License, or
+   (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+
+See file COPYING for details
+
+2. Introduction
+~~~~~~~~~~~~~~~
+
+When a PC is reset, it goes through a series of self tests, and then
+attempts to load an operating system.  The loading process requires a
+number of steps.  When booting from a hard disk, these are to read and
+execute the first sector of the first hard disk, called the master
+boot record, which in turn, reads and executes the first sector of one
+of the partitions on that disk, called a boot sector.  The program
+code on this sector then loads the operating system.  The standard MBR
+(master boot record) which comes with MSDOS is fairly simple, and
+limited in a number of ways.  The MSDOS MBR is also non-free which
+means that it cannot form part of a completely free system.  This MBR
+is more complicated, and aims to overcome these limitations.
+
+3. Basic Installation
+~~~~~~~~~~~~~~~~~~~~~
+
+See the file 'INSTALL' for generic building instructions.  By default
+this package installs the program install-mbr in /usr/local/sbin.
+This program is used to install the MBR and contains a copy of the
+MBR within itself.
+
+Before you begin, make sure you have an alternative way of booting
+your computer (ie. boot floppy).  When all fails and your computer
+sits there asking you to insert a system disk, you'll be stuck if you
+don't have one.
+
+Installation is done using the program called install-mbr.  If this
+program is not on your path, you will have to invoke it as
+<dir>/install-mbr (./install-mbr if it is in the current directory).
+It is recomended that you test the master boot record with your system
+before you install it on the first sector of your hard disk.  You may
+wish to skip this step if you took my earlier advice and made a boot
+floppy.  To do this, put a blank floppy disk in your first disk drive,
+and type the command:
+  install-mbr /dev/fd0 -T /dev/hda
+
+If your primary disk is a SCSI disk, you will have to replace hda in
+the command above with sda.  This command tells install-mbr to install
+it's built-in copy of the master boot record on the first floppy drive
+(/dev/fd0), taking the partition table from the first IDE hard disk
+(/dev/hda).  Booting from the floppy disk should load your operating
+system as usual.
+
+Once the master boot record has been tested, you can install it on
+your hard disk using the following command:
+  install-mbr /dev/hda
+
+4. The boot process
+~~~~~~~~~~~~~~~~~~~
+
+When the MBR is first loaded it waits for a configurable length of
+time (1 second by default), monitoring the keyboard, for key presses.
+If the MBR detects a key press, it will interrupt the boot process,
+and display it's prompt.  Otherwise, it will load the first sector of
+the default partition, and execute it.  If a disk error occours, the
+MBR will display it's prompt.
+
+4.1 The boot prompt
+~~~~~~~~~~~~~~~~~~~
+
+The boot prompt looks something like this:
+
+14FA:
+
+This is the list of valid keys which may be pressed.  This means that
+partitions 1, and 4 can be booted, also the first floppy drive
+(F).  The 'A' means that 'advanced' mode may be entered, in which any
+partition may be booted.  The prompt for this mode looks like this:
+
+1234F:
+
+The only other valid key which may be pressed is RETURN, which
+continues booting with the default partition.
+
+5. Acknowledgements
+~~~~~~~~~~~~~~~~~~~
+Many thanks to all who have contributed to this package.  Please read
+the AUTHORS file.

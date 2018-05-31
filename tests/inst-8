@@ -1,0 +1,23 @@
+#! /bin/sh
+
+# BUG: running install-mbr -I y2k.b /dev/hda fails.  We should fail if
+# the Y2K setting is explicitly requested.
+
+dd if=test-old of=test-mbr 2>/dev/null
+
+do_install -y- test-mbr
+do_install -I y2k.b test-mbr
+do_install --list test-mbr >test-y
+cat <<EOF >test-x
+Version: 2
+Compatible: 2
+Y2K-Fix: Enabled
+Drive: 0x80
+Default: D
+Timeout: 18/18 seconds
+Enabled: F A
+Interrupt: Shift Key
+EOF
+diff -u test-x test-y
+
+: Done

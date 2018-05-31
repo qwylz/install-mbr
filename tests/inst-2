@@ -1,0 +1,53 @@
+#! /bin/sh
+# Test the -I option without -r
+dd if=test-old of=test-mbr 2>/dev/null
+do_install -I mbr-1.1.2.b -d 0xf0 -t 249 -p 1 -i s -e 3 test-mbr
+dd if=test-mbr of=test-new 2>/dev/null
+do_install -lI mbr-1.1.1.b test-new >test-y
+cat <<EOF >test-x
+Version: 0
+Compatible: 0
+Drive: 0xf0
+Default: 1
+Timeout: 249/18 seconds
+Enabled: 3
+Interrupt: Shift
+EOF
+diff -u test-x test-y
+
+# The parameters start at 434 and are 4 bytes long.
+do_cmp mbr-1.1.2.b test-mbr bs=434 count=1
+do_cmp mbr-1.1.2.b test-mbr bs=1 skip=438 count=74
+
+# The parameters start at 412 and are 4 bytes long.
+do_cmp mbr-1.1.1.b test-new bs=1 count=412
+do_cmp mbr-1.1.1.b test-new bs=1 skip=416 count=96
+
+dd if=test-mbr bs=1 skip=434 count=1 of=test-x 2>/dev/null
+dd if=test-new bs=1 skip=412 count=1 of=test-y 2>/dev/null
+cmp test-x test-y
+
+# Test -k option
+do_install -k test-mbr
+do_cmp mbr-1.1.2.b test-mbr bs=1 count=434
+do_cmp mbr-1.1.2.b test-mbr bs=1 skip=438 count=74
+dd if=test-mbr bs=1 skip=434 count=1 of=test-x 2>/dev/null
+dd if=test-new bs=1 skip=412 count=1 of=test-y 2>/dev/null
+cmp test-x test-y
+
+dd if=test-old of=test-mbr 2>/dev/null
+do_install -d 0xe4 -t 118 -p 3 -i a -e 23 test-mbr
+dd if=test-mbr of=test-new 2>/dev/null
+do_install -l test-new >test-y
+cat <<EOF >test-x
+Version: 2
+Compatible: 2
+Y2K-Fix: Disabled
+Drive: 0xe4
+Default: 3
+Enabled: 2 3
+Interrupt: Always
+EOF
+diff -u test-x test-y
+
+: Done

@@ -1,0 +1,69 @@
+#! /bin/sh
+function check_version {
+  md5sum mbr-$1.b >test-y
+  echo "$2  mbr-$1.b" >test-x
+  diff -u test-x test-y
+  do_install -Imbr-$1.b -t 14 -is -e31 -d 0xd7 test-mbr
+  do_install -l test-mbr >test-x
+  cat >test-y
+  diff -u test-x test-y
+}
+
+# Check that all the old versions are Ok.
+check_version 1.1.3 dab5cc77a49aa61138c0900f4d53cb7c <<EOF
+Version: 1
+Compatible: 0
+Y2K-Fix: Disabled
+Drive: 0xd7
+Default: D
+Timeout: 14/18 seconds
+Enabled: 1 3
+Interrupt: Shift
+EOF
+check_version 1.1.2 8c39ec3aff7220e6aafa70de68f65ebd <<EOF
+Version: 0
+Compatible: 0
+Drive: 0xd7
+Default: D
+Timeout: 14/18 seconds
+Enabled: 1 3
+Interrupt: Shift
+EOF
+check_version 1.1.1 d090f926c2fbd377d56126288cb7d740 <<EOF
+Version: 0
+Compatible: 0
+Drive: 0xd7
+Default: D
+Timeout: 14/18 seconds
+Enabled: 1 3
+Interrupt: Shift
+EOF
+check_version 1.1.0 114d66869b3962560c5019962e949aec <<EOF
+Version: 0
+Compatible: 0
+Drive: 0xd7
+Default: D
+Timeout: 14/18 seconds
+Enabled: 1 3
+Interrupt: Shift
+EOF
+check_version 1.0.1 ec3d993eddbe4c2aa0fef33f78c7fd92 <<EOF
+Version: 0
+Compatible: 0
+Drive: 0xd7
+Default: D
+Timeout: 14/18 seconds
+Enabled: 1 3
+Interrupt: Shift
+EOF
+check_version 1.0.0 b72624c2f89f146c5ed85d872e022c91 <<EOF
+Version: 0
+Compatible: 0
+Drive: 0xd7
+Default: D
+Timeout: 14/18 seconds
+Enabled: 1 3
+Interrupt: Shift
+EOF
+
+: Done

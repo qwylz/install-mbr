@@ -1,0 +1,25 @@
+Neil Turton <neilt+mbr@chiark.greenend.org.uk> wrote the main code and
+installation program.
+
+Thanks to:
+
+  Santiago Vila <sanvila@unex.es> for maintaining the Debian package.
+
+  Kalle Olavi Niemitalo <tosi@ees2.oulu.fi> for submitting a number of
+    bug fixes.
+
+  Tom Rothamel <tom-10990@onegeek.org> for writing the initial logo
+    code.
+
+  Santiago Garcia Mantinan <manty@debian.org> for initiating the
+    y2kbug alternative mbr to work round a Y2K bug in 1994/1995 Award
+    BIOSes, having taken over the Debian package from the other
+    Santiago.  Thanks also for providing the basis for extending the
+    maximum time limit.
+
+  Massimo Dal Zotto <dz@cs.unitn.it> for drawing my attention to the
+    fact that the big disk interface support code broke early versions
+    of syslinux.  Big blush on my part.  ;)
+
+  Daniel B. Sedory < http://mirror.href.com/thestarman/ > for facilitating
+    the introduction into TestDisk, a partition recovery program.

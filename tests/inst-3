@@ -1,0 +1,38 @@
+#! /bin/sh
+# Test the new --y2k options
+dd if=test-old of=test-mbr 2>/dev/null
+do_install -y -d 0xb3 -t 132 -p 3 -i n -e 14 test-mbr
+do_install -l test-mbr >test-y
+cat <<EOF >test-x
+Version: 2
+Compatible: 2
+Y2K-Fix: Enabled
+Drive: 0xb3
+Default: 3
+Timeout: 132/18 seconds
+Enabled: 1 4
+Interrupt:
+EOF
+diff -u test-x test-y
+
+do_cmp y2k.b test-mbr bs=432 count=1
+do_cmp /dev/zero test-mbr bs=2 skip=223 count=32
+do_cmp y2k.b test-mbr bs=2 skip=223
+
+# Try different options.
+dd if=test-old of=test-mbr 2>/dev/null
+dd if=test-old of=test-mbr-u 2>/dev/null
+dd if=test-old of=test-mbr-l 2>/dev/null
+do_install -yu test-mbr-u
+do_install -yr test-mbr 2>/dev/null && exit 1
+do_install -yutc test-mbr
+cmp test-mbr test-mbr-u
+do_install -yum test-mbr 2>/dev/null && exit 1
+do_install -yl test-mbr-l
+do_install -yloval test-mbr 2>/dev/null && exit 1
+do_install -ylocal test-mbr
+cmp test-mbr test-mbr-l
+do_install -y test-mbr
+cmp test-mbr test-mbr-u || cmp test-mbr test-mbr-l
+
+: Done

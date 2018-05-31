@@ -1,0 +1,472 @@
+! mbr.S - a replacement master boot record
+! Copyright (C) 1995,1999-2001 Neil Turton
+! See the file AUTHORS for a list of contributors.
+!
+!    This program is free software; you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation; either version 2 of the License, or
+!    (at your option) any later version.
+!
+!    This program is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with this program; if not, write to the Free Software
+!    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+
+!!! High level feature selection.
+	
+#define LOGO
+
+#ifdef Y2KBUG
+#undef LOGO
+#endif
+
+#undef COMPAT
+/*#define NEW_FORMAT*/
+
+!!! Low level feature selection.
+
+cfg_asm_flags:	set 0
+#ifdef Y2KBUG
+cfg_asm_flags:	set cfg_asm_flags | 1
+#endif
+#ifdef TESTDISK
+cfg_asm_flags:	set cfg_asm_flags | 2
+#endif	
+
+! Setup the flags with cool settings. Have no delay, but allow
+! interrupt. We mark everything bootable, but default to booting
+! the active partition.
+cfg_flags: set 0x90 ! Floppy bootable. Advanced mode available.
+
+cfg_def:	set 0xc7 ! Boot active partition, Interrupt by anything.
+
+! Delay in timer ticks. 0=>No delay. 65535=>Interrupt.
+cfg_delay:	set 18  ! About a second.
+
+cfg_drive:	set 0x80 ! /dev/hda
+
+#ifdef TESTDISK
+cfg_delay:	set 0
+cfg_flags:	set 0x1f ! Boot anything.
+#endif
+
+#ifdef COMPAT
+! Setup the flags to mimic standard MBRs unless interrupted
+! flags:bits 0-4 marks partitions 1-4 and floppy bootable
+!	bit 7 = unlocked
+! def:	bits 0-2 default boot partition (0-3, 4=floppy or 7=active)
+!	bits 6,7 interrupt on (shift/ctrl,key press)
+cfg_flags: set 0 ! No specially bootable partitions. Advanced mode disabled.
+cfg_def:   set 7 ! Boot active partition, Interrupt by nothing.
+cfg_delay: set 0
+#endif
+
+!
+! We are loaded at 0:0x7c00 by the BIOS, but need to load boot sectors
+! here, so we have got to move out of the way. We move to 0:DEST_ADDR
+! 0x600 is as good a place as any.
+#define LOAD_ADDR 0x7c00
+#define DEST_ADDR 0x600
+! The time when we started up.
+stime	equ 0x800
+.org DEST_ADDR
+	! Do not use DL here; we need the value later.  It contains
+	! the drive which the MBR was loaded from.
+	cld
+	xor ax,ax
+	mov ss,ax
+	xor sp,sp ! First word pushed goes to 0000:FFFE.
+	mov ds,ax
+	mov es,ax
+	mov si,#LOAD_ADDR
+#ifdef Y2KBUG
+! We need dx and cx for locating and updating the MBR
+	pusha	! MBR data: cx=cylinder/sector dx=head/drive si=address
+#endif
+	mov di,#DEST_ADDR ! Here will do
+	mov cx,#0x100
+	repz
+	movsw
+	mov si,#table+0x30 ! Set bootable flags from partition table
+	mov al,#8 ! AH=0 is set from above
+	jmp 0:cont ! Switch to the newly made copy. From now on labels work.
+cont:
+	cmpb drive,#0xFF ! If drive==0xFF, use the value in DL instead.
+	jne ptloop
+	mov drive,dl ! Now DL is free for use
+ptloop:
+	cmpb [si],#0 ! Check for bootable flag
+	jz l7
+	or flags,al ! Set in flags
+l7:	sub si,#0x10
+	shr al,1
+	jnc ptloop ! Repeat until bit gets shifted out of al
+
+	int 0x1a ! AH=0: Get time
+	mov stime,dx
+
+#ifdef Y2KBUG
+! Address the year in the loaded copy.
+#define YEAR #(year-DEST_ADDR+LOAD_ADDR)
+
+	mov ah,#4
+	int 0x1a	! cx=year(bcd) dh=month(bcd) dl=day(bcd)
+	mov si,YEAR
+	lodsw		! DF=0 set before
+	cmp [si],dh	! compare last month, against this month
+	pushf
+	mov [si],dh
+	jbe setdate	! if CF=1 jump
+	inc ax		! we need to enter here with CF=0, inc doe not set it
+	daa
+	xchg ah,al
+	adc al,#0
+	daa
+	xchg ah,al
+	mov [si-2],ax
+setdate:
+	mov cx,ax
+	mov ah,#5
+	int 0x1a
+	popf
+	popa
+	je nowrite
+	mov bx,si
+	mov ax,#0x0301
+	int 0x13
+nowrite:
+
+#endif /* Y2KBUG */
+
+#ifdef LOGO
+	call show_logo
+#endif
+
+	cmp word[delay],#65535
+	jz show_prompt ! Immediate interrupt
+l0:	testb def,#0x80 ! Key press interrupt allowed
+	jz l1
+	mov ah,#1
+	int 0x16
+	jnz show_prompt ! Interrupted
+l1:	testb def,#0x40 ! Shift/Ctrl allowed
+	jz l2
+	test byte 0x417,#0xf ! Check shift status
+	jnz show_prompt ! Interrupted
+l2:	xor ax,ax ! Check timer.
+	int 0x1a
+	sub dx,stime ! This code gets confused at midnight (FIXME)
+	sub dx,delay
+	jb l0 ! Time not passed
+
+boot_def:
+	mov al,def ! Boot default
+	and al,#7
+	cmp al,#7
+	jnz boot2 ! Boot number al
+	mov si,#table ! Boot first partition marked bootable
+	mov al,#0
+	mov cx,#4
+l5:	cmpb [si],#0
+boot2:	jnz boot
+	inc al
+	add si,#0x10
+	loop l5 ! Try next partition
+
+	! Display the prompt
+show_prompt:
+#ifdef TESTDISK
+	xor bx,bx
+#else /* TESTDISK */
+#ifdef LOGO
+	call show_logo
+#else
+	xor bx,bx
+#endif
+#endif /* TESTDISK */
+	mov ah,#0xe ! Print char
+	mov si,#chars ! List of chars to print
+	mov cl,flags ! Interrupted (or no default)
+
+l9:	lodsb
+	shr cl,#1 ! Shift next bit into carry
+	jnb l8
+	int 0x10
+
+l8:	or cl,cl ! Any more bits set?
+	jnz l9
+	mov al,#0x3a ! Print a colon
+	int 0x10
+
+wait_key:
+	xor ax,ax ! Get user input
+	int 0x16
+	cmp al,#0
+	jz wait_key ! Skip extended chars
+#ifdef TESTDISK
+	mov si, #crnl
+	mov cx, #2
+	call show_string
+#endif /* TESTDISK */
+	cmp al,#13 ! RETURN pressed
+	jz boot_def ! Boot default
+	cmp al,#'a ! CPP isn't quite compatible with as86
+	jb l10
+	cmp al,#'z ! ' This may make it a bit more obvious
+	ja l10
+	sub al,#0x20 ! Upper case input
+
+l10:	mov bl,al
+	mov si,#chars
+	mov cl,flags
+
+l12:	lodsb
+	shr cl,#1
+	jnb l13
+	cmp bl,al
+	jz l14
+l13:	or cl,cl
+	jnz l12
+#ifdef TESTDISK
+	jmp show_prompt
+#else
+	jmp wait_key
+#endif
+
+l14:	mov ax,#0xe0d
+	xor bx,bx
+	int 0x10
+        ! FIXME: This could be shortened.
+	lea ax, 0xff&-(chars+1)[si]
+	cmp al,#7 ! Check if advanced mode selected
+	jnz boot
+	mov al,#0x1f
+	mov flags,al
+ishow_prompt:
+	jmp show_prompt
+	
+boot:	! Boot partition al
+#ifndef TESTDISK
+#ifdef LOGO
+	! Re-display the logo, so the prompt is right if we get an
+	! error.
+	call show_logo
+#endif
+#endif /* TESTDISK */
+	xor dx,dx
+	mov cx,#1
+	cmp al,#4
+	jz sread ! Boot from floppy (DL=0)
+	jnb ishow_prompt ! Illegal - interrupt
+
+	xor ah,ah
+	mov cl,#4
+	shl al,cl
+	mov si,#table
+	add si,ax
+	mov dl,drive
+
+	! Entry:
+	!  SI -> Partition record
+	!  DL = Drive number
+sread:
+	mov di,#5 ! number of retries
+l6:
+	push si
+	test dl, #0x80		! Only try the extended interface on
+#ifdef TESTDISK
+	je odi			! hard disks.
+#else
+	je sdi			! hard disks.
+#endif
+
+	mov ah, #0x41
+	mov bx, #0x55aa
+	push dx
+	int #0x13
+	pop dx
+	pop si
+	push si
+	jb sdi
+	cmp bx, #0xaa55		! Check the signature
+	jnz sdi
+	test cl, #1		! Check the API support bitmap
+	jz sdi
+
+	! That will do.  The big disk extenstion is there.
+	mov ax, 8[si]		
+	mov bx, 10[si]
+	mov si, #request
+	mov 8[si], ax
+	mov 10[si], bx
+	mov ah, #0x42
+	jmp cdi
+
+	! Entry:
+	!  SI -> Partition record
+	!  DL = Drive number
+	!  stack: si
+sdi:
+	mov dh,[si+1]
+	mov cx,[si+2]
+odi:
+	! Entry:
+	! DH = head
+	! CX = cylinder/sector
+	! DL = Drive number
+	mov ax,#0x201
+	mov bx,#LOAD_ADDR
+cdi:
+	push ax
+	mov byte [request+2], #1	! Reset count to 1
+	int 0x13
+	pop ax
+	pop si
+	jnb lbit
+	dec di
+	jnz l6
+iishow_prompt:
+	jmp ishow_prompt
+lbit:
+	cmp 0x7dfe,#0xaa55
+	jnz iishow_prompt
+#ifndef TESTDISK
+#ifdef LOGO
+	! Start the next line.
+	xor bx, bx
+	mov ax, #0xe0d
+	int 0x10
+	mov al, #0xa
+	int 0x10
+#endif
+#endif /* TESTDISK */
+	jmp 0:LOAD_ADDR
+
+#ifdef LOGO
+	! Corrupts si, cx.  Returns with bx=0
+show_logo:
+	! Code to print the word "MBR" at boot time, to let people
+	! know that we are here. - Tom Rothamel <tom-10990@onegeek.org>
+	! Inspired by a discussion on debian-devel.
+#ifdef TESTDISK
+	mov si,#logo
+	mov cx,#logolen
+show_string:
+	push ax
+	mov ah,#0xe
+	xor bx,bx
+#else /* TESTDISK */
+	push ax
+	mov ax,#0xe0d ! Print char CR
+	xor bx,bx
+	int 0x10
+	mov si,#logo
+	mov cx,#logolen
+#endif /* TESTDISK */	
+logol:
+	lodsb
+	int 0x10
+	loop logol
+	pop ax
+	ret
+
+logo:
+#ifdef TESTDISK
+	.ascii "TestDisk"
+crnl:
+	db	0x0d, 0x0a
+#else /* TESTDISK */
+	.ascii "MBR "
+#endif /* TESTDISK */
+logo_end:
+logolen equ logo_end-logo   ! The length of the logo string.
+#endif
+
+request:
+	.byte 0x10, 0, 1, 0
+	.word LOAD_ADDR, 0
+	.word 0, 0, 0, 0
+chars:
+	db '1,'2,'3,'4,'F,0,0,'A
+
+#ifndef NEW_FORMAT
+	! The data area follows.  Access to this data area from
+	! external code should be via the pointer at offset 0x1bc.
+	! Check the signature and version numbers.  If the program
+	! knows about version V, it may access the data if X<=V<=Y.
+	! While the version is still 0.0, just check X against 0.0.
+	!
+	! There used to be 2 bytes for the version number.  I now see
+	! this as overkill.  1 byte should be enough for the version
+	! number.  The spare byte in the real version will be assembly
+	! flags.  The spare byte in the compat version will be
+	! reserved for future expansion.
+data:	.ascii "NDTmbr" ! Sig string
+	db 0 ! Free for use.
+	db 2 ! From version X=2   i.e. Compat version
+	db cfg_asm_flags
+	db 2 ! To version Y=2     i.e. Real version
+flags:	db cfg_flags
+def:	db cfg_def
+delay:	dw cfg_delay
+drive:	db cfg_drive
+
+padding:
+#ifdef Y2KBUG
+.space (DEST_ADDR+0x1b9)-padding
+year:	dw 0x2001 ! Year
+	db 1 ! Month
+#else /* Y2KBUG */
+.space (DEST_ADDR+0x1bc)-padding
+#endif
+	dw data-DEST_ADDR ! Pointer to the data
+	
+#else
+	! The data area follows.  The area ends just before the
+	! partition table, at 0x1be. Check the signature and version
+	! numbers.  The version is the real version of the structure
+	! used.  It should be used to determine which fields are
+	! valid.  When new fields are added we put them at the
+	! beginning of the area.  This means that the old fields are
+	! still where an old installer expects them.  We use the
+	! compat_version field to tell the old installer that it is
+	! allowed to use them.  If the old installer knows about the
+	! compat_version, but not version, it may assume that there
+	! are new fields, but the old fields are where it expects
+	! them.
+padding:
+	.space 0x1b1-(padding - DEST_ADDR)
+	! These are only valid on the Y2K version, but I cannot be
+	! bothered removing them.
+year:	dw 2001
+month:	db 7
+flags:	db cfg_flags
+def:	db cfg_def
+delay:	dw cfg_delay
+drive:	db cfg_drive
+	db cfg_asm_flags
+	db 2 ! Compatible version.  Safe to access as v2.
+	db 2 ! Real version.  This is v2.
+	db 0xef, 0x17
+#endif
+! Format of partition table entry
+!   00 byte Boot indicator
+!   01 byte start head
+!   02 byte start sector
+!   03 byte start cylinder
+!   04 byte type
+!   05 byte end head
+!   06 byte end sector
+!   07 byte end cylinder
+!   08 dw   sectors before partition
+!   0c dw   sectors in partition
+table:	.space 0x40 ! The partition table
+	dw 0xaa55
+
+! Local Variables:
+! mode:asm
+! End:

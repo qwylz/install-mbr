@@ -1,0 +1,33 @@
+#! /bin/sh
+# Check long delays, boots partition 2.
+cat <<EOF >test-x
+Version: 2
+Compatible: 2
+Y2K-Fix: Disabled
+Drive: 0x80
+Default: 2
+Timeout: 255/18 seconds
+Enabled: F A
+Interrupt: Key
+EOF
+do_install -l -r -d 0x80 -ik -t 255 -p 2 -eaf test-mbr >test-y
+diff -u test-x test-y
+cat <<EOF >test-x
+Output: "\rMBR "
+Time: 255
+Output: "\rMBR "
+Read sector d128 h0 c132 s1 to 0000:7c00
+Output: "\r\n"
+Time: 256
+Exit: 0080 0000 0084 0001
+Partition: active  type: 0x83
+Start: C=132 H=0 S=1  End: C=1023 H=15 S=17
+Sector 0x00008c40  Length 0x00044000
+eax:00000e0a ebx:00000000 ecx:00008401 edx:00000080 PC:0000:00007c02
+esi:000007ce edi:00000005 ebp:00000000 efl:00030246 SP:0000:00000000
+ds:0000 es:0000 fs:0000 gs:0000 FLAGS: c P a Z s t I d o
+EOF
+harness test-mbr -r10 -w275 -k 0x2166 >test-y
+diff -u test-x test-y
+
+: Done

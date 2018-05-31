@@ -1,0 +1,29 @@
+#! /bin/sh
+set -e
+function do_cmp {
+  local X Y ; X=$1 ; Y=$2 ; shift ; shift
+  dd if=$X of=test-x "$@" 2>/dev/null
+  dd if=$Y of=test-y "$@" 2>/dev/null
+  cmp test-x test-y
+}
+
+function do_install {
+  ./install-mbr "$@"
+}
+
+function run_dos {
+  exit 1
+}
+
+function harness {
+  @HAVE_VM86_FALSE@ exit 77
+  @HAVE_VM86_TRUE@  harness/harness "$@"
+}
+
+for TEST in "$@"
+do rm -f test-*
+   dd if=/dev/zero of=test-old bs=510 count=1 2>/dev/null
+   echo -ne '\0125\0252' >>test-old
+   dd if=table.b of=test-mbr bs=512 count=1 2>/dev/null
+   . $TEST
+done

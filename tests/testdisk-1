@@ -1,0 +1,27 @@
+#! /bin/sh
+# Test of auto-booting from the hard disk using small disk interface.
+#   Drive: 0x80 - hd0
+#   Default: partition 3
+#   Timeout: 9
+#   Interrupt: Shift / Key
+#   Enable: 1
+do_install -I testdisk.b -d 0x80 -p 3 -t 9 -isk -e1 test-mbr
+# Boots the default
+cat <<EOF >test-x
+Output: "TestDisk"
+Time: 1
+Output: "\r\n"
+Time: 9
+Read sector d128 h15 c1023 s17 to 0000:7c00
+Exit: 0080 000f 03ff 0011
+Partition: inactive  type: 0xeb
+Start: C=1023 H=15 S=17  End: C=1023 H=15 S=17
+Sector 0x0004cc40  Length 0x00010de0
+eax:00000201 ebx:00007c00 ecx:0000ffd1 edx:00000f80 PC:0000:00007c02
+esi:000007de edi:00000005 ebp:00000000 efl:00030246 SP:0000:00000000
+ds:0000 es:0000 fs:0000 gs:0000 FLAGS: c P a Z s t I d o
+EOF
+harness test-mbr -r 10 >test-y
+diff -u test-x test-y
+
+: Done

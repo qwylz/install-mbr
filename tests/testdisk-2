@@ -1,0 +1,30 @@
+#! /bin/sh
+# Check floppy booting.  Small disk interface.
+cat <<EOF >test-x
+Version: 2
+Compatible: 2
+Y2K-Fix: Disabled
+Drive: 0x80
+Default: F
+Timeout: 9/18 seconds
+Enabled: A
+Interrupt: Shift
+EOF
+do_install -I testdisk.b -l -r -d 0x80 -p f -t 9 -is -ea test-mbr > test-y
+diff -u test-x test-y
+cat <<EOF >test-x
+Output: "TestDisk"
+Time: 1
+Output: "\r\n"
+Time: 9
+Read sector d0 h0 c0 s1 to 0000:7c00
+Exit: 0000 0000 0000 0001
+Floppy boot.
+eax:00000201 ebx:00007c00 ecx:00000001 edx:00000000 PC:0000:00007c02
+esi:0000078d edi:00000005 ebp:00000000 efl:00030246 SP:0000:00000000
+ds:0000 es:0000 fs:0000 gs:0000 FLAGS: c P a Z s t I d o
+EOF
+harness test-mbr -r 10 >test-y
+diff -u test-x test-y
+
+: Done

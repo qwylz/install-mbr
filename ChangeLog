@@ -1,0 +1,169 @@
+Thu Sep 25 22:57:40 2008  Neil Turton  <neilt+mbr@chiark.greenend.org.uk>
+
+	* Fixed a NULL pointer dereference in VM event handling.
+
+	* No longer distribute wraptest since it is generated.  We
+	  now run the correct copy of wraptest.
+
+	* Added a leading zero to octal numbers in escape codes passed to
+	  echo for more consistent behaviour.
+
+	* Released version 1.1.11.
+
+Sat Jul 19 17:06:08 2008  Neil Turton  <neilt+mbr@chiark.greenend.org.uk>
+
+	* Switched to automake-1.9.  This removes a warning about
+	  --datarootdir being ignored.
+
+	* Explicitly set the version of autoconf to be used to avoid
+	  potential incompatibilities with other versions.
+
+Sun May  6 21:53:30 2007  Neil Turton  <neilt+mbr@chiark.greenend.org.uk>
+
+	* Updated Daniel B. Sedory's address.
+
+	* Removed uses of type-punning which make newer versions
+	  of GCC choke.
+
+	* Coded vm86 syscall in an asm rather than using _syscall2 since
+	  some kernels protect _syscall2 with __KERNEL__.
+
+	* Released version 1.1.10
+
+Sat Sep  2 17:33:56 2006  Neil Turton  <neilt+mbr@chiark.greenend.org.uk>
+
+	* Disabled the execution tests for x86_64.
+
+	* Added maintainer mode (disabled by default) so that users can't
+	  need the correct versions of automake and autoconf installed.
+
+	* Fixed some typos in the manual page and added a section on the
+	  boot-time behaviour of the MBR.
+
+	* Fixed some warnings.
+
+	* Stopped using the _binary_mbr_b_size symbol since it is absolute
+	  and they don't work with -fPIE.
+
+	* Released version 1.1.9
+
+Sun Mar 20 18:23:38 2005  Neil Turton  <neilt+mbr@chiark.greenend.org.uk>
+
+	* Fixed the "boot floppy" option in the TestDisk image.  Due to a
+	bug, it previously attempted to boot track 334 of the floppy,
+	which never succeeded.
+
+	* Released version 1.1.8
+
+Sat Mar 12 15:09:14 2005  Neil Turton  <neilt+mbr@chiark.greenend.org.uk>
+
+	* Added TestDisk variant.  This has a banner rather than a menu
+	prefix and has a particular set of config options.  The main
+	variants are unchanged.
+	
+	* Released version 1.1.7
+
+Sun Jan 16 19:14:28 2005  Neil Turton  <neilt+mbr@chiark.greenend.org.uk>
+
+	* Save and restore si around the disk read, since it gets loaded
+	  with the address of the disk address packet.
+
+	* Updated the testsuite to dump out the partition entry.
+	
+	* Released version 1.1.6
+
+Sat Sep 15 12:39:03 2001  Neil Turton  <neilt@chiark.greenend.org.uk>
+
+	* Released version 1.1.5
+
+Fri Sep 14 23:23:34 2001  Neil Turton  <neilt@chiark.greenend.org.uk>
+
+	* Finally updated the test suite to use the new test harness
+	prompted by yet another DOSemu change which broke the old test
+	suite.  DOSemu is no longer required to run the tests.
+
+	* Made --y2k option persistent like other options.  Added
+	--y2k=off to revert to default state.  Made "--y2k --list" install
+	new code like the manual page says.  Added tests for these bugs.
+
+	* Added new tests for compatibility of the installer with old
+	versions of the code.
+
+Sat Jul 14 13:55:38 2001  Neil Turton  <neilt@chiark.greenend.org.uk>
+
+	* Created a VM86 test harness to replace DOSemu, and avoid the
+	changes to configuration file and improved `security' measures.
+	This also removes an external dependency.
+
+Mon Jul 23 10:40:32 2001  Neil Turton  <neilt@chiark.greenend.org.uk>
+
+	* Released version 1.1.4
+
+	* Made incompatible change by increasing the size of the delay
+	field.
+
+	* Introduced a new parameter layout support in install-mbr.  Added
+	a compile-time flag to switch to the new layout in mbr.S86
+	(currently disabled).
+
+	* Made the version routines pickier.  Doing anything with an
+	incompatible version is now banned.  Updated the manual page to
+	match.
+
+Fri Apr  6 19:41:32 2001  Neil Turton  <neilt@chiark.greenend.org.uk>
+
+	* Released version 1.1.3
+
+	* Changed version number scheme to maintain a set of assembly
+	flags.
+
+	* Upgraded dosemu.conf to deal with recent versions of DOSemu.
+	Also added a wrapper to give DOSemu a tty on stdin.
+
+	* Added Y2K BIOS bug fix from Santiago Garcia Mantinan
+	<manty@debian.org>
+
+Thu Feb 10 18:22:10 2000  Neil Turton  <neilt@chiark.greenend.org.uk>
+
+	* Released version 1.1.2
+
+	* Added logo support.
+
+Mon Jan 10 20:05:57 2000  Neil Turton  <neilt@chiark.greenend.org.uk>
+
+	* Released version 1.1.1
+
+	* Wrote a man page for install-mbr.
+
+	* Fixed large disk support code to check the API support bitmap.
+
+Sat Nov 13 00:14:40 1999  Neil Turton  <neilt@chiark.greenend.org.uk>
+
+	* Released version 1.1.0
+
+	* Added large disk support.
+
+Mon Nov 8 22:54:49 1999  Neil Turton  <neilt@chiark.greenend.org.uk>
+
+	* Wrote the test suite.
+
+	* Created mbr installation program (install-mbr).
+
+Wed Sep  1 13:48:35 1999  Neil Turton  <neilt@chiark.greenend.org.uk>
+
+	* Released version 1.0.1
+	
+	* A number of patches from Kalle Olavi Niemitalo
+ 	<tosi@ees2.oulu.fi>.
+
+  	* The drive parameter was being ignored.
+
+  	* A potential stack overflow problem was fixed (if SS:SP=0000:0800
+ 	on entry).
+  	
+	* The drive number passed by the BIOS is used if the configured
+	drive is 0xFF.
+
+Sat Nov 11 23:05:14 1995  Neil Turton  <neilt@chiark.greenend.org.uk>
+
+	* Released version 1.0.0

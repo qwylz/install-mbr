@@ -1,0 +1,22 @@
+#! /bin/sh
+# Check the large disk interface, boots partition 3.
+do_install -I testdisk.b -d 0x80 -p 3 -t 5 -isk -e1 test-mbr
+# Boots partition 3.
+cat <<EOF >test-x
+Output: "TestDisk"
+Time: 1
+Output: "\r\n"
+Time: 5
+Read sector #0x000000000004cc40 to 0000:7c00
+Exit: 0000 0000 0004 cc40
+Partition: inactive  type: 0xeb
+Start: C=1023 H=15 S=17  End: C=1023 H=15 S=17
+Sector 0x0004cc40  Length 0x00010de0
+eax:00004240 ebx:00000004 ecx:00000001 edx:00000080 PC:0000:00007c02
+esi:000007de edi:00000005 ebp:00000000 efl:00030246 SP:0000:00000000
+ds:0000 es:0000 fs:0000 gs:0000 FLAGS: c P a Z s t I d o
+EOF
+harness -ib test-mbr -r 10 >test-y
+diff -u test-x test-y
+
+: Done

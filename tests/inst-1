@@ -1,0 +1,32 @@
+#! /bin/sh
+# Basic installation tests.
+set -e
+dd if=/dev/zero of=test-old bs=510 count=1 2>/dev/null
+echo -ne '\0125\0252' >>test-old
+
+# Do install
+dd if=test-old of=test-mbr 2>/dev/null
+do_install test-mbr
+cmp mbr.b test-mbr
+
+# Don't install
+dd if=test-old of=test-mbr 2>/dev/null
+do_install -n test-mbr
+cmp test-old test-mbr
+
+# Install binary file (-I with -r)
+dd if=${srcdir=.}/mbr.S86 of=test-img bs=512 count=1 2>/dev/null
+do_install -rI test-img test-mbr
+dd if=test-img of=test-x bs=446 count=1 2>/dev/null
+dd if=test-mbr of=test-y bs=446 count=1 2>/dev/null
+cmp test-x test-y
+dd if=test-old of=test-x bs=1 skip=446 count=66 2>/dev/null
+dd if=test-mbr of=test-y bs=1 skip=446 count=66 2>/dev/null
+cmp test-x test-y
+
+if do_install /dev/null 2>/dev/null ||
+   do_install /dev/full 2>/dev/null
+then exit 1
+fi
+
+: Done

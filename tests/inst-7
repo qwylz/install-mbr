@@ -1,0 +1,37 @@
+#! /bin/sh
+
+# BUG: running install-mbr -t 20 --list /dev/hda changes the mbr,
+# while running install-mbr -y --list /dev/hda doesn't)
+
+dd if=test-old of=test-mbr 2>/dev/null
+
+do_install test-mbr
+do_install -t 20 --list test-mbr >/dev/null
+do_install --list test-mbr >test-y
+cat <<EOF >test-x
+Version: 2
+Compatible: 2
+Y2K-Fix: Disabled
+Drive: 0x80
+Default: D
+Timeout: 20/18 seconds
+Enabled: F A
+Interrupt: Shift Key
+EOF
+diff -u test-x test-y
+
+do_install -y --list test-mbr >/dev/null
+do_install --list test-mbr >test-y
+cat <<EOF >test-x
+Version: 2
+Compatible: 2
+Y2K-Fix: Enabled
+Drive: 0x80
+Default: D
+Timeout: 20/18 seconds
+Enabled: F A
+Interrupt: Shift Key
+EOF
+diff -u test-x test-y
+
+: Done

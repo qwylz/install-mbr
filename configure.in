@@ -1,0 +1,16 @@
+AC_INIT
+AM_INIT_AUTOMAKE(mbr, 1.1.11)
+
+# This makes sure that people don't have problems due to them having an
+# incompatible automake on their system.
+AM_MAINTAINER_MODE
+
+AC_PROG_CC
+
+dnl I'm not sure if the number of brackets needed for this is
+dnl well-defined...
+AM_CONDITIONAL(HAVE_VM86, [[uname -m | grep -q 'i[0-9]86']])
+
+AC_CONFIG_FILES([wraptest])
+
+AC_OUTPUT(Makefile harness/Makefile)

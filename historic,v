@@ -1,0 +1,585 @@
+head	1.6;
+access;
+symbols
+	MBR_1_1_3:1.6
+	MBR_1_1_2:1.5
+	MBR_1_1_1:1.4
+	MBR_1_1_0:1.3
+	MBR_1_0_1:1.2
+	MBR_1_0_0:1.1;
+locks
+	neil:1.6; strict;
+comment	@# @;
+
+
+1.6
+date	2001.09.14.22.09.41;	author neil;	state Exp;
+branches;
+next	1.5;
+
+1.5
+date	2001.09.14.22.09.41;	author neil;	state Exp;
+branches;
+next	1.4;
+
+1.4
+date	2001.09.14.22.09.41;	author neil;	state Exp;
+branches;
+next	1.3;
+
+1.3
+date	2001.09.14.22.09.41;	author neil;	state Exp;
+branches;
+next	1.2;
+
+1.2
+date	2001.09.14.22.09.41;	author neil;	state Exp;
+branches;
+next	1.1;
+
+1.1
+date	2001.09.14.22.09.40;	author neil;	state Exp;
+branches;
+next	;
+
+
+desc
+@@
+
+
+1.6
+log
+@mbr-1.1.3.S86
+@
+text
+@! mbr.S - a replacement master boot record
+! Copyright (C) 1995,1999-2001 Neil Turton
+! See the file AUTHORS for a list of contributors.
+!
+!    This program is free software; you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation; either version 2 of the License, or
+!    (at your option) any later version.
+!
+!    This program is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with this program; if not, write to the Free Software
+!    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+!
+#define LOGO
+#undef COMPAT
+!
+! We are loaded at 0:0x7c00 by the BIOS, but need to load boot sectors
+! here, so we have got to move out of the way. We move to 0:DEST_ADDR
+! 0x600 is as good a place as any.
+#define LOAD_ADDR 0x7c00
+#define DEST_ADDR 0x600
+! The time when we started up.
+stime	equ 0x800
+.org DEST_ADDR
+	! Do not use DL here; we need the value later.  It contains
+	! the drive which the MBR was loaded from.
+	cld
+	xor ax,ax
+	mov ss,ax
+	xor sp,sp ! First word pushed goes to 0000:FFFE.
+	mov ds,ax
+	mov es,ax
+	mov si,#LOAD_ADDR
+#ifdef Y2KBUG
+#undef LOGO
+! We need dx and cx for locating and updating the MBR
+	pusha	! MBR data: cx=cylinder/sector dx=head/drive si=address
+#endif
+	mov di,#DEST_ADDR ! Here will do
+	mov cx,#0x100
+	repz
+	movsw
+	mov si,#table+0x30 ! Set bootable flags from partition table
+	mov al,#8 ! AH=0 is set from above
+	jmp 0:cont ! Switch to the newly made copy. From now on labels work.
+cont:
+	cmpb drive,#0xFF ! If drive==0xFF, use the value in DL instead.
+	jne ptloop
+	mov drive,dl ! Now DL is free for use
+ptloop:	cmpb [si],#0 ! Check for bootable flag
+	jz l7
+	or flags,al ! Set in flags
+l7:	sub si,#0x10
+	shr al,1
+	jnc ptloop ! Repeat until bit gets shifted out of al
+
+	int 0x1a ! AH=0: Get time
+	mov stime,dx
+
+#ifdef Y2KBUG
+! Address the year in the loaded copy.
+#define YEAR #(year-DEST_ADDR+LOAD_ADDR)
+
+	mov ah,#4
+	int 0x1a	! cx=year(bcd) dh=month(bcd) dl=day(bcd)
+	mov si,YEAR
+	lodsw		! DF=0 set before
+	cmp [si],dh	! compare last month, against this month
+	pushf
+	mov [si],dh
+	jbe setdate	! if CF=1 jump
+	inc ax		! we need to enter here with CF=0, inc doe not set it
+	daa
+	xchg ah,al
+	adc al,#0
+	daa
+	xchg ah,al
+	mov [si-2],ax
+setdate:
+	mov cx,ax
+	mov ah,#5
+	int 0x1a
+	popf
+	popa
+	je nowrite
+	mov bx,si
+	mov ax,#0x0301
+	int 0x13
+nowrite:
+
+#endif
+
+#ifdef LOGO
+	call show_logo
+#endif
+
+	cmpb delay,#255
+	jz l3 ! Immediate interrupt
+l0:	testb def,#0x80 ! Key press interrupt allowed
+	jz l1
+	mov ah,#1
+	int 0x16
+	jnz l3 ! Interrupted
+l1:	testb def,#0x40 ! Shift/Ctrl allowed
+	jz l2
+	test byte 0x417,#0xf ! Check shift status
+	jnz l3 ! Interrupted
+l2:	xor ax,ax ! Check timer.
+	int 0x1a
+	sub dx,stime ! This code gets confused at midnight (FIXME)
+	sub dl,delay
+	sbb dh,#0
+	jb l0 ! Time not passed
+
+l4:	mov al,def ! Boot default
+	and al,#7
+	cmp al,#7
+	jnz boot2 ! Boot number al
+	mov si,#table ! Boot first partition marked bootable
+	mov al,#0
+	mov cx,#4
+l5:	cmpb [si],#0
+boot2:	jnz boot
+	inc al
+	add si,#0x10
+	loop l5 ! Try next partition
+
+	! Display the prompt
+l3:
+#ifdef LOGO
+	call show_logo
+#else
+	xor bx,bx
+#endif
+	mov ah,#0xe ! Print char
+	mov si,#chars ! List of chars to print
+	mov cl,flags ! Interrupted (or no default)
+l9:	lodsb
+	shr cl,#1 ! Shift next bit into carry
+	jnb l8
+	int 0x10
+l8:	or cl,cl ! Any more bits set?
+	jnz l9
+	mov al,#0x3a ! Print a colon
+	int 0x10
+l11:	xor ax,ax ! Get user input
+	int 0x16
+	cmp al,#0
+	jz l11 ! Skip extended chars
+	cmp al,#13 ! RETURN pressed
+	jz l4 ! Boot default
+	cmp al,#'a ! CPP isn't quite compatible with as86
+	jb l10
+	cmp al,#'z ! ' This may make it a bit more obvious
+	ja l10
+	sub al,#0x20 ! Upper case input
+
+l10:	mov bl,al
+	mov si,#chars
+	mov cl,flags
+l12:	lodsb
+	shr cl,#1
+	jnb l13
+	cmp bl,al
+	jz l14
+l13:	or cl,cl
+	jnz l12
+	jmp l11
+l14:	mov ax,#0xe0d
+	xor bx,bx
+	int 0x10
+	! FIXME: This could be shortened.
+	lea ax, 0xff&-(chars+1)[si]
+	cmp al,#7 ! Check if advanced mode selected
+	jnz boot
+	mov al,#0x1f
+	mov flags,al
+il3:	jmp l3
+	
+boot:	! Boot partition al
+#ifdef LOGO
+	! Re-display the logo, so the prompt is right if we get an
+	! error.
+	call show_logo
+#endif
+	xor dx,dx
+	mov cx,#1
+	cmp al,#4
+	jz sdr ! Boot from floppy (DL=0)
+	jnb il3 ! Illegal - interrupt
+
+	xor ah,ah
+	mov cl,#4
+	shl al,cl
+	mov si,#table
+	add si,ax
+	mov dl,drive
+
+	! Entry:
+	!  SI -> Partition record
+	!  DL = Drive number
+sread:	test dl, #0x80		! Only try the extended interface on
+	je sdi			! hard disks.
+
+	mov ah, #0x41
+	mov bx, #0x55aa
+	push si
+	push dx
+	int #0x13
+	pop dx
+	pop si
+	jb sdi
+	cmp bx, #0xaa55		! Check the signature
+	jnz sdi
+	test cl, #1		! Check the API support bitmap
+	jz sdi
+
+	! That will do.  The big disk extenstion is there.
+	mov ax, 8[si]		
+	mov bx, 10[si]
+	mov si, #request
+	mov 8[si], ax
+	mov 10[si], bx
+	mov ah, #0x42
+	jmp cdi
+
+	! Entry:
+	!  SI -> Partition record
+	!  DL = Drive number
+sdi:	mov dh,[si+1]
+	mov cx,[si+2]
+
+	! Entry:
+	! DH = head
+	! CX = cylinder/sector
+	! DL = Drive number
+sdr:	mov ax,#0x201
+	mov bx,#LOAD_ADDR
+cdi:	mov di,#5 ! number of retries
+l6:	push ax
+	mov byte [request+2], #1	! Reset count to 1
+	int 0x13
+	pop ax
+	jnb lbit
+	dec di
+	jnz l6
+iil3:	jmp il3
+lbit:	cmp 0x7dfe,#0xaa55
+	jnz iil3
+#ifdef LOGO
+	! Start the next line.
+	xor bx, bx
+	mov ax, #0xe0d
+	int 0x10
+	mov al, #0xa
+	int 0x10
+#endif
+	jmp 0:LOAD_ADDR
+
+#ifdef LOGO
+	! Corrupts si, cx.  Returns with bx=0
+show_logo:
+	! Code to print the word "MBR" at boot time, to let people
+	! know that we are here. - Tom Rothamel <tom-10990@@onegeek.org>
+	! Inspired by a discussion on debian-devel.
+	push ax
+	mov ax,#0xe0d ! Print char CR
+	xor bx,bx
+	int 0x10
+	mov si,#logo
+	mov cx,#logolen
+logol:
+	lodsb
+	int 0x10
+	loop logol
+	pop ax
+	ret
+
+logo:  .ascii "MBR "
+logo_end:
+logolen equ logo_end-logo   ! The length of the logo string.
+#endif
+
+request:.byte 0x10, 0, 1, 0
+	.word LOAD_ADDR, 0
+	.word 0, 0, 0, 0
+chars:	db '1,'2,'3,'4,'F,0,0,'A
+	! The data area follows.  Access to this data area from
+	! external code should be via the pointer at offset 0x1bc.
+	! Check the signature and version numbers.  If the program
+	! knows about version V, it may access the data if X<=V<=Y.
+	! While the version is still 0.0, just check X against 0.0.
+	!
+	! There used to be 2 bytes for the version number.  I now see
+	! this as overkill.  1 byte should be enough for the version
+	! number.  The spare byte in the real version will be assembly
+	! flags.  The spare byte in the compat version will be
+	! reserved for future expansion.
+data:	.ascii "NDTmbr" ! Sig string
+	db 0 ! Reserved.  Zero so that old installers accept this.
+	db 0 ! From version X=0   i.e. Compat version
+#ifndef Y2KBUG
+	db 0 ! Assembly flags: none
+#else
+	db 1 ! Assembly flags: y2k
+#endif
+	db 1 ! To version Y=1     i.e. Real version
+#ifndef COMPAT
+! Setup the flags with cool settings. Have no delay, but allow
+! interrupt. We mark everything bootable, but default to booting
+! the active partition.
+flags:	db 0x90 ! Floppy bootable. Advanced mode available.
+def:	db 0xc7 ! Interrupt by anything.
+delay:	db 18 ! About 1 second
+drive:	db 0x80 ! /dev/hda
+#else
+! Setup the flags to mimic standard MBRs unless interrupted
+! flags:bits 0-4 marks partitions 1-4 and floppy bootable
+!	bit 7 = unlocked
+! def:	bits 0-2 default boot partition (0-3, 4=floppy or 7=active)
+!	bits 6,7 interrupt on (shift/ctrl,key press)
+flags:	db 0 ! No specially bootable partitions. Advanced mode disabled.
+def:	db 7 ! Boot active partition
+delay:	db 0 ! Delay in timer ticks. 0=>No delay. 255=>Interrupt.
+drive:	db 0x80
+#endif
+#ifdef Y2KBUG
+.org DEST_ADDR+0x1b9
+year:	dw 0x2001 ! Year
+	db 1 ! Month
+#endif
+.org DEST_ADDR+0x1bc
+	dw data-DEST_ADDR ! Pointer to the data
+! Format of partition table entry
+!   00 byte Boot indicator
+!   01 byte start head
+!   02 byte start sector
+!   03 byte start cylinder
+!   04 byte type
+!   05 byte end head
+!   06 byte end sector
+!   07 byte end cylinder
+!   08 dw   sectors before partition
+!   0c dw   sectors in partition
+table:	.space 0x40 ! The partition table
+	dw 0xaa55
+
+! Local Variables:
+! mode:asm
+! End:
+@
+
+
+1.5
+log
+@mbr-1.1.2.S86
+@
+text
+@d2 2
+a3 1
+! Copyright (C) 1995 Neil Turton
+d25 1
+d38 6
+a43 1
+	mov si,#0x7c00
+d62 36
+a103 2
+	int 0x1a ! AH=0: Get time
+	mov stime,dx
+d243 1
+a243 1
+	mov bx,#0x7c00
+d263 1
+a263 1
+	jmp 0:0x7c00
+d290 1
+a290 1
+	.word 0x7c00, 0
+d298 6
+d305 8
+a312 2
+	db 0,0 ! From version X=0.0
+	db 0,0 ! to version Y=0.0
+d331 5
+@
+
+
+1.4
+log
+@mbr-1.1.1.S86
+@
+text
+@d18 1
+d44 2
+a45 1
+cont:	cmpb drive,#0xFF ! If drive==0xFF, use the value in DL instead.
+d54 5
+a61 1
+	mov stime+2,cx
+d74 1
+a74 2
+	sub dx,stime ! This code gets confused at midnight
+	sbb cx,stime+2 ! (FIXME)
+a76 1
+	sbb cx,#0
+d78 1
+d91 9
+a99 1
+l3:	mov cl,flags ! Interrupted (or no default)
+d101 1
+a104 2
+	mov ah,#0xe ! Print char
+	xor bx,bx
+d108 1
+a108 2
+	mov ax,#0xe3a ! Print a colon
+	xor bx,bx
+d121 1
+d136 2
+a137 2
+	mov ax,si
+	sub ax,#chars+1
+d144 7
+a150 1
+boot:	xor dx,dx ! Boot partition al
+d155 1
+d204 1
+a204 4
+l6:	push cx
+	push dx
+	push di
+	push ax
+a207 3
+	pop di
+	pop dx
+	pop cx
+d211 1
+a211 1
+	jmp il3
+d213 9
+a221 1
+	jnz il3
+d223 25
+@
+
+
+1.3
+log
+@mbr-1.1.0.S86
+@
+text
+@d158 1
+a158 1
+	cmp bx, #0xaa55
+d160 2
+d188 1
+d191 1
+@
+
+
+1.2
+log
+@mbr-1.0.1.S86
+@
+text
+@d64 1
+a64 1
+	test 0x417,#0xf ! Check shift status
+d135 1
+a135 1
+	jz sread ! Boot from floppy
+d143 31
+a173 1
+	mov dh,[si+1]
+d175 8
+a182 1
+sread:	mov di,#5 ! number of retries
+d186 1
+a186 2
+	mov ax,#0x201
+	mov bx,#0x7c00
+d189 1
+a189 1
+	pop bx
+d198 3
+d222 1
+a222 1
+! def:	bits 0-2 default boot partition (0-4 or 7=active)
+d244 4
+@
+
+
+1.1
+log
+@mbr-1.0.0.S86
+@
+text
+@d27 2
+d31 2
+d41 1
+a41 1
+	mov al,#8
+d43 4
+a46 1
+cont:	cmpb [si],#0 ! Check for bootable flag
+d51 1
+a51 1
+	jnc cont ! Repeat until bit gets shifted out of al
+d54 1
+a54 1
+	int 0x1a ! Get time
+d142 1
+a142 1
+	mov dl,#0x80
+d145 1
+a145 1
+sread:	mov di,#5
+d163 5
+d169 2
+a170 2
+	db 0,0 ! From version 0.0
+	db 0,0 ! to version 0.0
+d178 1
+a178 1
+drive:	db 0x80 ! /dev/hda1
+@
